@@ -1891,7 +1891,9 @@ class MainWindow(QtWidgets.QMainWindow):
             item = self.fileListWidget.currentItem()
             item.setCheckState(Qt.Unchecked)
 
+            filename = self.filename
             self.resetState()
+            self.loadFile(filename)
 
     # Message Dialogs. #
     def hasLabels(self):
