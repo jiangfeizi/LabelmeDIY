@@ -115,6 +115,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.flag_dock = QtWidgets.QDockWidget(self.tr("Flags"), self)
         self.flag_dock.setObjectName("Flags")
         self.flag_widget = QtWidgets.QListWidget()
+        self.filename = None
         if config["flags"]:
             self.loadFlags({k: False for k in config["flags"]})
         self.flag_dock.setWidget(self.flag_widget)
@@ -816,6 +817,19 @@ class MainWindow(QtWidgets.QMainWindow):
         # if self.firstStart:
         #    QWhatsThis.enterWhatsThisMode()
 
+    def event(self, event: QtCore.QEvent) -> bool:
+        if event.type() == QtCore.QEvent.ShortcutOverride and self.filename is not None:
+            flags_num = self.flag_widget.count()
+            if QtCore.Qt.Key_0 < event.key() < QtCore.Qt.Key_1 + flags_num and self.filename:
+                item = self.flag_widget.item(event.key() - QtCore.Qt.Key_1)
+                state = item.checkState()
+                if state == Qt.Checked:
+                    item.setCheckState(Qt.Unchecked)
+                elif state == Qt.Unchecked:
+                    item.setCheckState(Qt.Checked)
+
+        return super().event(event)
+
     def menu(self, title, actions=None):
         menu = self.menuBar().addMenu(title)
         if actions:
@@ -1228,9 +1242,13 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def loadFlags(self, flags):
         self.flag_widget.clear()
-        for key, flag in flags.items():
-            item = QtWidgets.QListWidgetItem(key)
-            item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
+        for index, (key, flag) in enumerate(flags.items()):
+            key = key.split('\t|\t')[0]
+            item = QtWidgets.QListWidgetItem(f'{key}\t|\tkey : {index + 1}')
+            if self.filename is not None:
+                item.setFlags(item.flags() | Qt.ItemIsUserCheckable)
+            else:
+                item.setFlags(item.flags() ^ Qt.ItemIsEnabled)
             item.setCheckState(Qt.Checked if flag else Qt.Unchecked)
             self.flag_widget.addItem(item)
 
@@ -1255,6 +1273,7 @@ class MainWindow(QtWidgets.QMainWindow):
         for i in range(self.flag_widget.count()):
             item = self.flag_widget.item(i)
             key = item.text()
+            key = key.split('\t|\t')[0]
             flag = item.checkState() == Qt.Checked
             flags[key] = flag
         try:
