@@ -7,6 +7,9 @@ import os
 import os.path as osp
 import re
 import webbrowser
+from datetime import datetime
+import shutil
+import json
 
 import imgviz
 import natsort
@@ -569,6 +572,31 @@ class MainWindow(QtWidgets.QMainWindow):
         )
         fill_drawing.trigger()
 
+        self.tools_output_dir = os.path.join(os.getcwd(), 'output')
+
+        clean = action(
+            self.tr("&Clean"),
+            self.clean_tools_output_dir,
+            icon="clean",
+            tip=self.tr("clean output directory of tools.")
+        )
+
+        rename = action(
+            self.tr("&Rename"),
+            self.rename_images_and_jsons,
+            icon="rename",
+            tip=self.tr("rename all images and jsons."),
+            enabled=False,
+        )
+
+        separate = action(
+            self.tr("&Separate"),
+            self.separate_images,
+            icon="separate",
+            tip=self.tr("separate images to directories."),
+            enabled=False,
+        )
+
         # Lavel list context menu.
         labelMenu = QtWidgets.QMenu()
         utils.addActions(labelMenu, (edit, delete))
@@ -614,6 +642,8 @@ class MainWindow(QtWidgets.QMainWindow):
             zoomActions=zoomActions,
             openNextImg=openNextImg,
             openPrevImg=openPrevImg,
+            rename=rename,
+            separate=separate,
             fileMenuActions=(open_, opendir, save, saveAs, close, quit),
             tool=(),
             # XXX: need to add some actions here to activate the shortcut
@@ -750,6 +780,10 @@ class MainWindow(QtWidgets.QMainWindow):
             None,
             zoom,
             fitWidth,
+            None,
+            clean,
+            rename,
+            separate,
         )
 
         self.statusBar().showMessage(str(self.tr("%s started.")) % __appname__)
@@ -2042,12 +2076,16 @@ class MainWindow(QtWidgets.QMainWindow):
         if len(self.imageList) > 1:
             self.actions.openNextImg.setEnabled(True)
             self.actions.openPrevImg.setEnabled(True)
+            self.actions.rename.setEnabled(True)
+            self.actions.separate.setEnabled(True)
 
         self.openNextImg()
 
     def importDirImages(self, dirpath, pattern=None, load=True):
         self.actions.openNextImg.setEnabled(True)
         self.actions.openPrevImg.setEnabled(True)
+        self.actions.rename.setEnabled(True)
+        self.actions.separate.setEnabled(True)
 
         if not self.mayContinue() or not dirpath:
             return
@@ -2087,3 +2125,146 @@ class MainWindow(QtWidgets.QMainWindow):
                     images.append(relativePath)
         images = natsort.os_sorted(images)
         return images
+
+    def clean_tools_output_dir(self):
+        if not os.path.exists(self.tools_output_dir):
+            os.mkdir(self.tools_output_dir)
+            
+        output_list = os.listdir(self.tools_output_dir)
+        count = len(output_list)
+
+        if count:
+            progress = QtWidgets.QProgressDialog(self)
+            progress.setWindowTitle(self.tr("Please wait a moment."))  
+            progress.setLabelText(self.tr("cleaning..."))
+            progress.setCancelButtonText(self.tr("cancel"))
+            progress.setMinimumDuration(3)
+            progress.setWindowModality(Qt.WindowModal)
+            progress.setRange(0,count)
+
+            for i in range(count):
+                progress.setValue(i) 
+                if progress.wasCanceled():
+                    QtWidgets.QMessageBox.warning(self, self.tr("Tips"), self.tr("Failed")) 
+                    break
+
+                item = output_list[i]
+                if os.path.isdir(os.path.join(self.tools_output_dir, item)):
+                    shutil.rmtree(os.path.join(self.tools_output_dir, item))
+                else:
+                    os.remove(os.path.join(self.tools_output_dir, item))
+            else:
+                progress.setValue(count) 
+                QtWidgets.QMessageBox.information(self, self.tr("Tips"), self.tr("Successed"))
+        else:
+            QtWidgets.QMessageBox.information(self, self.tr("Tips"), self.tr("Successed"))
+
+    def tools_output_check(self):
+        if os.path.exists(self.tools_output_dir):
+            if len(os.listdir(self.tools_output_dir)):
+                QtWidgets.QMessageBox.warning(self, self.tr("Tips"), self.tr("Please clear output folder.")) 
+                return False
+        else:
+            QtWidgets.QMessageBox.warning(self, self.tr("Tips"), self.tr("Output folder has been created.")) 
+            os.mkdir(self.tools_output_dir)
+
+        return True
+
+    def rename_images_and_jsons(self):
+        if self.tools_output_check():
+            count = self.fileListWidget.count()
+
+            if count:
+                progress = QtWidgets.QProgressDialog(self)
+                progress.setWindowTitle(self.tr("Please wait a moment."))  
+                progress.setLabelText(self.tr("renaming..."))
+                progress.setCancelButtonText(self.tr("cancel"))
+                progress.setMinimumDuration(3)
+                progress.setWindowModality(Qt.WindowModal)
+                progress.setRange(0,count) 
+
+                for i in range(count):
+                    progress.setValue(i) 
+                    if progress.wasCanceled():
+                        QtWidgets.QMessageBox.warning(self, self.tr("Tips"), self.tr("Failed")) 
+                        break
+
+                    item = self.fileListWidget.item(i)
+                    image_path = item.text()
+                    pre, ext = os.path.splitext(image_path)
+                    label_path = pre + ".json"
+                    if self.output_dir:
+                        label_path = os.path.join(self.output_dir, os.path.basename(label_path))
+
+                    strftime = datetime.now().strftime('%Y-%m-%d-%H-%M-%S-%f')
+                    shutil.copy(image_path, os.path.join(self.tools_output_dir, strftime + ext))
+                    if os.path.exists(label_path):
+                        shutil.copy(label_path, os.path.join(self.tools_output_dir, strftime + '.json'))
+                else:
+                    progress.setValue(count) 
+                    QtWidgets.QMessageBox.information(self, self.tr("Tips"), self.tr("Successed"))
+            else:
+                QtWidgets.QMessageBox.information(self, self.tr("Tips"), self.tr("Successed"))
+
+    def separate_images(self):
+        if self.tools_output_check():
+            count = self.fileListWidget.count()
+
+            if count:
+                progress = QtWidgets.QProgressDialog(self)
+                progress.setWindowTitle(self.tr("Please wait a moment."))  
+                progress.setLabelText(self.tr("checking..."))
+                progress.setCancelButtonText(self.tr("cancel"))
+                progress.setMinimumDuration(3)
+                progress.setWindowModality(Qt.WindowModal)
+                progress.setRange(0,count) 
+
+                for i in range(count):
+                    progress.setValue(i) 
+                    if progress.wasCanceled():
+                        QtWidgets.QMessageBox.warning(self, self.tr("Tips"), self.tr("Failed")) 
+                        return
+
+                    item = self.fileListWidget.item(i)
+                    image_path = item.text()
+                    pre, ext = os.path.splitext(image_path)
+                    label_path = pre + ".json"
+                    if self.output_dir:
+                        label_path = os.path.join(self.output_dir, os.path.basename(label_path))
+
+                    if os.path.exists(label_path):
+                        data = json.load(open(label_path, 'r', encoding='utf8'))
+                        flags = data['flags']
+                        flag_list = [flag for key, flag in flags.items()]
+                        if sum(flag_list) >= 2:
+                            QtWidgets.QMessageBox.warning(self, self.tr("Tips"), self.tr("%s's flag is more than one.") % (image_path))
+                            return
+
+                for i in range(self.fileListWidget.count()):
+                    progress.setValue(i) 
+                    if progress.wasCanceled():
+                        QtWidgets.QMessageBox.warning(self, self.tr("Tips"), self.tr("Failed")) 
+                        return
+                        
+                    item = self.fileListWidget.item(i)
+                    image_path = item.text()
+                    pre, ext = os.path.splitext(image_path)
+                    label_path = pre + ".json"
+                    if self.output_dir:
+                        label_path = os.path.join(self.output_dir, os.path.basename(label_path))
+
+                    if os.path.exists(label_path):
+                        data = json.load(open(label_path, 'r', encoding='utf8'))
+                        flags = data['flags']
+                        for key, flag in flags.items():
+                            if flag:
+                                key_dir = os.path.join(self.tools_output_dir ,key)
+                                if not os.path.exists(key_dir):
+                                    os.mkdir(key_dir)
+                                shutil.copy(image_path, os.path.join(key_dir, os.path.basename(image_path)))
+                else:
+                    progress.setValue(count) 
+                    QtWidgets.QMessageBox.information(self, self.tr("Tips"), self.tr("Successed"))
+            else:
+                QtWidgets.QMessageBox.information(self, self.tr("Tips"), self.tr("Successed"))                        
+
