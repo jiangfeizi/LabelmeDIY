@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ui version="4.0">
+ <class>Form</class>
+ <widget class="QWidget" name="Form">
+  <property name="geometry">
+   <rect>
+    <x>0</x>
+    <y>0</y>
+    <width>255</width>
+    <height>70</height>
+   </rect>
+  </property>
+  <property name="windowTitle">
+   <string>Form</string>
+  </property>
+  <layout class="QGridLayout" name="gridLayout">
+   <item row="1" column="2">
+    <widget class="QPushButton" name="cutout">
+     <property name="text">
+      <string>Cutout</string>
+     </property>
+    </widget>
+   </item>
+   <item row="0" column="2">
+    <widget class="QPushButton" name="classify">
+     <property name="text">
+      <string>Classify</string>
+     </property>
+    </widget>
+   </item>
+   <item row="0" column="1">
+    <widget class="QPushButton" name="unlabeled">
+     <property name="text">
+      <string>Unlabeled</string>
+     </property>
+    </widget>
+   </item>
+   <item row="1" column="0">
+    <widget class="QPushButton" name="rename">
+     <property name="text">
+      <string>Rename</string>
+     </property>
+    </widget>
+   </item>
+   <item row="1" column="1">
+    <widget class="QPushButton" name="filter">
+     <property name="text">
+      <string>Filter</string>
+     </property>
+    </widget>
+   </item>
+   <item row="0" column="0">
+    <widget class="QPushButton" name="labeled">
+     <property name="text">
+      <string>Labeled</string>
+     </property>
+    </widget>
+   </item>
+  </layout>
+ </widget>
+ <resources/>
+ <connections/>
+</ui>
