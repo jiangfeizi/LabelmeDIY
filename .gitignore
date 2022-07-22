@@ -10,3 +10,5 @@
 .DS_Store
 .idea/
 .vscode/
+/tools/build/
+/tools/dist/

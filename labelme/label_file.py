@@ -87,6 +87,7 @@ class LabelFile(object):
         try:
             with open(filename, "r") as f:
                 data = json.load(f)
+            f.close()
             version = data.get("version")
             if version is None:
                 logger.warn(

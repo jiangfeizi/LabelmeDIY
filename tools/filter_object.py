@@ -13,7 +13,9 @@ def is_image(image_name):
 
 images_dir = r'\\192.168.18.213\data\jiangwei\项目数据\扫码枪\训练'
 jsons_dir = r'\\192.168.18.213\data\jiangwei\项目数据\扫码枪\训练'
-dest_dir = r'\\192.168.10.186\test'
+dest_dir = r'\\192.168.18.213\data\jiangwei\项目数据\扫码枪\二维码'
+include_classes = ['qr', 'dm']
+fill = False
 
 for item in tqdm(os.listdir(jsons_dir)):
     if item.endswith('json'):
@@ -30,14 +32,14 @@ for item in tqdm(os.listdir(jsons_dir)):
         image_path = os.path.join(images_dir, image_name)
         image_name_no_ext, image_ext = os.path.splitext(image_name)
         
-        barcode_shape = [item for item in data['shapes'] if item['label'] == 'barcode']
-        other_shape = [item for item in data['shapes'] if item['label'] != 'barcode']
+        include_shape = [item for item in data['shapes'] if item['label'] in include_classes]
+        other_shape = [item for item in data['shapes'] if not item['label'] in include_classes]
 
-        if len(barcode_shape):
+        if len(include_shape):
             print(image_name)
             image = cv2.imdecode(np.fromfile(image_path, dtype=np.uint8), flags=-1)
 
-            data['shapes'] = barcode_shape
+            data['shapes'] = include_shape
 
             cv2.imencode('.' + image_ext, image)[1].tofile(os.path.join(dest_dir, image_name))
             json.dump(data, open(os.path.join(dest_dir, item), 'w', encoding='utf8'))

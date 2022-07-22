@@ -7,7 +7,6 @@ import os
 import os.path as osp
 import re
 import webbrowser
-from datetime import datetime
 import shutil
 import json
 
@@ -581,12 +580,11 @@ class MainWindow(QtWidgets.QMainWindow):
             tip=self.tr("clean output directory of tools.")
         )
 
-        rename = action(
-            self.tr("&Rename"),
-            self.rename_images_and_jsons,
-            icon="rename",
-            tip=self.tr("rename all images and jsons."),
-            enabled=False,
+        valid = action(
+            self.tr("&Valid"),
+            self.output_valid,
+            icon="valid",
+            tip=self.tr("clean output directory of tools.")
         )
 
         separate = action(
@@ -594,7 +592,6 @@ class MainWindow(QtWidgets.QMainWindow):
             self.separate_images,
             icon="separate",
             tip=self.tr("separate images to directories."),
-            enabled=False,
         )
 
         # Lavel list context menu.
@@ -642,8 +639,6 @@ class MainWindow(QtWidgets.QMainWindow):
             zoomActions=zoomActions,
             openNextImg=openNextImg,
             openPrevImg=openPrevImg,
-            rename=rename,
-            separate=separate,
             fileMenuActions=(open_, opendir, save, saveAs, close, quit),
             tool=(),
             # XXX: need to add some actions here to activate the shortcut
@@ -782,7 +777,7 @@ class MainWindow(QtWidgets.QMainWindow):
             fitWidth,
             None,
             clean,
-            rename,
+            valid,
             separate,
         )
 
@@ -981,7 +976,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.canvas.restoreShape()
         self.labelList.clear()
         self.loadShapes(self.canvas.shapes)
-        self.actions.undo.setEnabled(self.canvas.isShapeRestorable)
+        self.setDirty()
 
     def tutorial(self):
         url = "https://github.com/wkentaro/labelme/tree/main/examples/tutorial"  # NOQA
@@ -1120,6 +1115,12 @@ class MainWindow(QtWidgets.QMainWindow):
         shape.label = text
         shape.flags = flags
         shape.group_id = group_id
+
+        if not self.uniqLabelList.findItemsByLabel(shape.label):
+            uniqLabelListItem = self.uniqLabelList.createItemFromLabel(shape.label)
+            self.uniqLabelList.addItem(uniqLabelListItem)
+            rgb = self._get_rgb_by_label(shape.label)
+            self.uniqLabelList.setItemLabel(uniqLabelListItem, shape.label, rgb)
 
         self._update_shape_color(shape)
         if shape.group_id is None:
@@ -2076,16 +2077,12 @@ class MainWindow(QtWidgets.QMainWindow):
         if len(self.imageList) > 1:
             self.actions.openNextImg.setEnabled(True)
             self.actions.openPrevImg.setEnabled(True)
-            self.actions.rename.setEnabled(True)
-            self.actions.separate.setEnabled(True)
 
         self.openNextImg()
 
     def importDirImages(self, dirpath, pattern=None, load=True):
         self.actions.openNextImg.setEnabled(True)
         self.actions.openPrevImg.setEnabled(True)
-        self.actions.rename.setEnabled(True)
-        self.actions.separate.setEnabled(True)
 
         if not self.mayContinue() or not dirpath:
             return
@@ -2127,6 +2124,15 @@ class MainWindow(QtWidgets.QMainWindow):
         return images
 
     def clean_tools_output_dir(self):
+        mb = QtWidgets.QMessageBox
+        msg = self.tr(
+            "You are about to clean output directory, "
+            "proceed anyway?"
+        )
+        answer = mb.warning(self, self.tr("Attention"), msg, mb.Yes | mb.No)
+        if answer != mb.Yes:
+            return
+
         if not os.path.exists(self.tools_output_dir):
             os.mkdir(self.tools_output_dir)
             
@@ -2170,14 +2176,24 @@ class MainWindow(QtWidgets.QMainWindow):
 
         return True
 
-    def rename_images_and_jsons(self):
+    def tools_opendir_check(self):
+        for item in os.listdir(self.lastOpenDir):
+            if os.path.isdir(os.path.join(self.lastOpenDir, item)):
+                QtWidgets.QMessageBox.warning(self, self.tr("Tips"), self.tr("The tools cann't support multilevel directory.")) 
+                return False
+        else:
+            return True
+
+    def output_valid(self):
+        if not self.tools_opendir_check():
+            return
         if self.tools_output_check():
             count = self.fileListWidget.count()
 
             if count:
                 progress = QtWidgets.QProgressDialog(self)
                 progress.setWindowTitle(self.tr("Please wait a moment."))  
-                progress.setLabelText(self.tr("renaming..."))
+                progress.setLabelText(self.tr("Outputing files..."))
                 progress.setCancelButtonText(self.tr("cancel"))
                 progress.setMinimumDuration(3)
                 progress.setWindowModality(Qt.WindowModal)
@@ -2191,15 +2207,22 @@ class MainWindow(QtWidgets.QMainWindow):
 
                     item = self.fileListWidget.item(i)
                     image_path = item.text()
+                    image_name = os.path.basename(image_path)
                     pre, ext = os.path.splitext(image_path)
                     label_path = pre + ".json"
+                    label_name = os.path.basename(label_path)
                     if self.output_dir:
                         label_path = os.path.join(self.output_dir, os.path.basename(label_path))
 
-                    strftime = datetime.now().strftime('%Y-%m-%d-%H-%M-%S-%f')
-                    shutil.copy(image_path, os.path.join(self.tools_output_dir, strftime + ext))
                     if os.path.exists(label_path):
-                        shutil.copy(label_path, os.path.join(self.tools_output_dir, strftime + '.json'))
+                        data = json.load(open(label_path, 'r', encoding='utf8'))
+                        flags = data['flags']
+                        shapes = data['shapes']
+                        flag_list = [flag for key, flag in flags.items()]
+
+                        if sum(flag_list) >= 1 or len(shapes):
+                            shutil.copy(image_path, os.path.join(self.tools_output_dir, image_name))
+                            shutil.copy(label_path, os.path.join(self.tools_output_dir, label_name))
                 else:
                     progress.setValue(count) 
                     QtWidgets.QMessageBox.information(self, self.tr("Tips"), self.tr("Successed"))
@@ -2207,6 +2230,8 @@ class MainWindow(QtWidgets.QMainWindow):
                 QtWidgets.QMessageBox.information(self, self.tr("Tips"), self.tr("Successed"))
 
     def separate_images(self):
+        if not self.tools_opendir_check():
+            return
         if self.tools_output_check():
             count = self.fileListWidget.count()
 
