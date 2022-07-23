@@ -33,6 +33,7 @@ from labelme.widgets import LabelListWidgetItem
 from labelme.widgets import ToolBar
 from labelme.widgets import UniqueLabelQListWidget
 from labelme.widgets import ZoomWidget
+from labelme.widgets import Toolbox
 
 # FIXME
 # - [medium] Set max zoom value to something big enough for FitWidth/Window
@@ -843,6 +844,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self.zoomWidget.valueChanged.connect(self.paintCanvas)
 
         self.populateModeActions()
+
+        self.toolbox = Toolbox()
+        self.toolbox.setWindowFlags(Qt.WindowStaysOnTopHint)
 
         # self.firstStart = True
         # if self.firstStart:
@@ -2125,8 +2129,11 @@ class MainWindow(QtWidgets.QMainWindow):
         images = natsort.os_sorted(images)
         return images
 
-    def show_show_toolbox(self):
-        pass
+    def show_toolbox(self):
+        if self.toolbox.isHidden():
+            self.toolbox.show()
+        else:
+            self.toolbox.hide()
 
     # def clean_tools_output_dir(self):
     #     mb = QtWidgets.QMessageBox

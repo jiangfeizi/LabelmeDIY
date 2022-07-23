@@ -3,9 +3,9 @@ from qtpy import QtWidgets
 from labelme.ui.tools_ui import Ui_Form
 
 
-class Tools(QtWidgets.QWidget):
+class Toolbox(QtWidgets.QWidget):
     def __init__(self):
-        super(Tools, self).__init__()
+        super(Toolbox, self).__init__()
         self.ui = Ui_Form()
         self.ui.setupUi(self)
 
@@ -13,7 +13,7 @@ class Tools(QtWidgets.QWidget):
 if __name__ == "__main__":
     app = QtWidgets.QApplication([])
 
-    window = Tools()
+    window = Toolbox()
     window.show()
 
     app.exec_()
